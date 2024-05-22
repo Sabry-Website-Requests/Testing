@@ -1,0 +1,63 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Run Security Tests
+      run: |
+        cd checks
+        python search.py -d ..
+        result_python=$(python secret_scanner.py -p ..)
+        echo "$result_python"
+        if [[ "$result_python" == "No secrets found, good job! Keep an eye on them anyway as no tool is perfect." ]]; then
+          echo "Python secrets check passed."
+        else
+          echo "Python secrets check failed."
+          exit 1
+        fi
+
+    - name: Run Shell Script
+      run: |
+        cd checks
+        chmod +x find.sh
+        result_shell=$(./find.sh)
+        echo "$result_shell"
+        if [[ "$result_shell" == "Check passed." ]]; then
+          echo "Shell script check passed."
+        else
+          echo "Shell script check failed."
+          exit 1
+        fi
+
+    - name: Determine Version
+      id: determine_version
+      run: echo "::set-output name=version::v${{ github.run_number }}"
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.determine_version.outputs.version }}
+        release_name: Release ${{ steps.determine_version.outputs.version }}
+        body: |
+          This is an automatic release after a push. This is the latest version of the project.
+        draft: false
+        prerelease: false
