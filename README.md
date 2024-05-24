@@ -1,1 +1,3 @@
 # ServerWithTests-Template
+
+Password: password
